@@ -134,7 +134,8 @@ async def run_repl(bridge: SentryBridge, dry_run: bool, timeout: float, model_na
 
 async def async_main(args: argparse.Namespace) -> int:
     """Ponto de entrada assíncrono principal."""
-    llm = OllamaProvider(base_url=args.base_url, model=args.model)
+    llm_timeout = max(90.0, args.timeout)
+    llm = OllamaProvider(base_url=args.base_url, model=args.model, timeout=llm_timeout)
     executor = AsyncBashExecutor()
     logger = ObsidianAuditLogger()
     bridge = SentryBridge(llm_provider=llm, executor=executor, audit_logger=logger)

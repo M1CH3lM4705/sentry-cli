@@ -38,15 +38,15 @@ class OllamaProvider(ILLMProvider):
         "Você é o SENTRY (CORE-0), operador tático do homelab Debian com permissão total para inspecionar e gerenciar o sistema via comandos bash.\n"
         "O operador humano enviou uma mensagem em linguagem natural.\n\n"
         "DIRETRIZES DE DECISÃO:\n"
-        "1. Se a mensagem for uma solicitação, dúvida ou pergunta sobre o estado, existência, saúde, uso ou configuração de componentes do homelab (Docker, containers, discos, storage, memória, CPU, processos, systemd, logs, rede, portas):\n"
-        "   Você DEVE gerar o comando bash puro para inspecionar o sistema (ex: docker ps, free -h, df -h, systemctl status).\n"
-        "   Mesmo que o operador pergunte de forma indireta ou em linguagem natural ('você pode me dizer...', 'tem algum container...', 'como estão os containers?', 'é necessário algum container estar rodando?'), gere SEMPRE o comando de inspeção!\n"
+        "1. Se a mensagem solicitar inspeção, verificação ou ação prática no homelab (Docker, containers, discos, storage, memória, CPU, processos, systemd, logs, rede, portas):\n"
+        "   Gere o comando bash puro de inspeção/ação (ex: docker ps, free -h, df -h, systemctl status).\n"
+        "   Mesmo sob linguagem natural indireta ('como estão os containers?', 'tem algum serviço parado?'), gere o comando!\n"
         "   Responda ESTRITAMENTE no formato:\n"
         "   COMANDO: <comando bash puro>\n"
         "   INTERPRETAÇÃO: <uma frase explicando o que o comando faz>\n\n"
-        "2. NUNCA diga que não tem acesso aos containers, arquivos ou ao sistema operacional. Você tem acesso total executando comandos bash.\n\n"
-        "3. Apenas se a mensagem for exclusivamente uma saudação social ou conversa geral sem nenhuma relação com infraestrutura (ex: 'olá', 'quem é você', 'me conte uma piada'), responda:\n"
+        "2. Se for uma pergunta sobre suas capacidades, permissões ou quais comandos você tem acesso (ex: 'quais comandos você tem acesso?', 'o que você pode fazer?'), ou saudação/conversa geral, responda diretamente em português em no máximo 2 frases objetivas:\n"
         "   RESPOSTA: <sua resposta concisa em português>\n\n"
+        "3. NUNCA diga que não tem acesso aos containers, arquivos ou ao sistema operacional. Você tem acesso total executando comandos bash.\n\n"
         "Não inclua blocos markdown extras ou explicações adicionais fora do formato."
     )
 
@@ -54,15 +54,15 @@ class OllamaProvider(ILLMProvider):
         "Você é o SENTRY (CORE-0), operador tático no ambiente Windows com permissão total para inspecionar o sistema via PowerShell/CMD.\n"
         "O operador humano enviou uma mensagem em linguagem natural.\n\n"
         "DIRETRIZES DE DECISÃO:\n"
-        "1. Se a mensagem for uma solicitação, dúvida ou pergunta sobre o estado, existência, saúde, uso ou configuração de componentes locais (Docker, containers, discos, storage, memória, CPU, processos, serviços, rede, portas):\n"
-        "   Você DEVE gerar o comando PowerShell/CMD puro para inspecionar a máquina (ex: docker ps, Get-Process, Get-Service).\n"
-        "   Mesmo que o operador pergunte de forma indireta ou em linguagem natural ('você pode me dizer...', 'tem algum container...', 'como estão?'), gere SEMPRE o comando de inspeção!\n"
+        "1. Se a mensagem solicitar inspeção, verificação ou ação prática local (Docker, containers, discos, storage, memória, CPU, processos, serviços, rede, portas):\n"
+        "   Gere o comando PowerShell/CMD puro de inspeção/ação (ex: docker ps, Get-Process, Get-Service).\n"
+        "   Mesmo sob linguagem natural indireta ('como estão os containers?', 'tem algum serviço parado?'), gere o comando!\n"
         "   Responda ESTRITAMENTE no formato:\n"
         "   COMANDO: <comando powershell puro>\n"
         "   INTERPRETAÇÃO: <uma frase explicando o que o comando faz>\n\n"
-        "2. NUNCA diga que não tem acesso aos containers, arquivos ou ao sistema operacional. Você tem acesso total executando comandos PowerShell/CMD.\n\n"
-        "3. Apenas se a mensagem for exclusivamente uma saudação social ou conversa geral sem nenhuma relação com infraestrutura (ex: 'olá', 'quem é você', 'me conte uma piada'), responda:\n"
+        "2. Se for uma pergunta sobre suas capacidades, permissões ou quais comandos você tem acesso (ex: 'quais comandos você tem acesso?', 'o que você pode fazer?'), ou saudação/conversa geral, responda diretamente em português em no máximo 2 frases objetivas:\n"
         "   RESPOSTA: <sua resposta concisa em português>\n\n"
+        "3. NUNCA diga que não tem acesso aos containers, arquivos ou ao sistema operacional. Você tem acesso total executando comandos PowerShell/CMD.\n\n"
         "Não inclua blocos markdown extras ou explicações adicionais fora do formato."
     )
 
@@ -85,12 +85,12 @@ class OllamaProvider(ILLMProvider):
         self,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: float = 60.0,
+        timeout: float = 90.0,
     ) -> None:
         self.base_url = base_url or get_ollama_base_url()
         self.model = model or get_sentry_local_model()
         self.DEFAULT_DECISION_PROMPT = self.get_default_decision_prompt()
-        self.timeout = httpx.Timeout(timeout, connect=10.0)
+        self.timeout = httpx.Timeout(timeout, connect=15.0)
         self.options = {
             "num_thread": 5,
             "num_ctx": 2048,
@@ -113,7 +113,7 @@ class OllamaProvider(ILLMProvider):
 
         messages.append({"role": "user", "content": f"Intenção: {user_intent}"})
 
-        raw_reply = await self.chat(messages, on_token=on_token)
+        raw_reply = await self.chat(messages, on_token=on_token, num_predict=80)
 
         return self._parse_decision_output(raw_reply)
 
@@ -190,21 +190,26 @@ class OllamaProvider(ILLMProvider):
 
         messages.append({"role": "user", "content": prompt})
 
-        return await self.chat(messages, on_token=on_token)
+        return await self.chat(messages, on_token=on_token, num_predict=150)
 
     async def chat(
         self,
         messages: List[Dict[str, str]],
         on_token: Optional[Callable[[int, str], None]] = None,
+        num_predict: Optional[int] = None,
     ) -> str:
         """Envia mensagem ao Ollama com parâmetros de contenção e streaming opcional."""
         use_stream = on_token is not None
+        options = dict(self.options)
+        if num_predict is not None:
+            options["num_predict"] = num_predict
+
         payload = {
             "model": self.model,
             "messages": messages,
             "stream": use_stream,
             "think": False,
-            "options": self.options,
+            "options": options,
         }
 
         try:

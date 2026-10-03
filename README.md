@@ -65,6 +65,19 @@ pip install -e .
 pipx install git+https://github.com/M1CH3lM4705/sentry-cli.git
 ```
 
+### Windows (Zero-Config Installer or Update)
+
+For **Windows** (PowerShell or CMD):
+1. Clone or download this repository.
+2. Open the `windows/` folder and double-click `install.bat` (or run `.\windows\install.ps1` in PowerShell).
+3. The installer handles Python, installs dependencies, registers the decoupled `sentry_cli` package, upgrades any legacy wrappers from `$HOME\.sentry\bin\sentry.cmd`, and connects to local Ollama.
+
+**Updating from the legacy coupled version via PowerShell:**
+```powershell
+pip install --upgrade git+https://github.com/M1CH3lM4705/sentry-cli.git
+Remove-Item -Path "$HOME\.sentry\bin\sentry.cmd" -Force -ErrorAction SilentlyContinue
+```
+
 ---
 
 ## Usage
